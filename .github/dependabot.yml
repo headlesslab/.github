@@ -1,0 +1,17 @@
+# Dependabot for this repository. Satellites copy the template from README.md,
+# which is this file with the gomod directory set to "/".
+version: 2
+updates:
+  # Keep every SHA-pinned action in .github/workflows moving.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  # Go modules: security updates only. A limit of 0 disables version-update
+  # pull requests; security updates are not subject to the limit.
+  - package-ecosystem: gomod
+    directory: /smoke
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
