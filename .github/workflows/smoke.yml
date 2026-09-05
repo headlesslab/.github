@@ -1,0 +1,23 @@
+# Smoke test: the tiny module under smoke/ runs through the reusable workflow
+# on every push, so a broken go.yml is caught here before a Satellite sees it.
+name: Smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    uses: ./.github/workflows/go.yml
+    with:
+      working-directory: smoke
+      coverage-threshold: 100
+      cross-platform: true
