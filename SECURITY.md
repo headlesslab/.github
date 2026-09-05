@@ -4,7 +4,7 @@ This is the default security policy for every headlesslab repository that has no
 
 ## Supported versions
 
-For each headlesslab module, the latest Milestone release and, while one is out, its release candidate receive security fixes. A Milestone release is the latest minor release of the module (for wand, the one cut for the current Chrome stable milestone). Older releases receive nothing.
+Security fixes go to the latest release of each headlesslab module. For wand that is the latest Milestone release (the minor release cut for the current Chrome stable milestone) and, while one is out, its release candidate; for the other modules it is their latest tagged release. Older releases receive nothing.
 
 Fixes ship as patch releases of the supported version.
 

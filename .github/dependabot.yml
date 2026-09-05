@@ -1,8 +1,8 @@
-# Dependabot for this repository. Satellites copy the template from README.md,
-# which is this file with the gomod directory set to "/".
+# This repository's own Dependabot configuration. The satellites' template in
+# README.md is this file with the gomod directory set to "/".
 version: 2
 updates:
-  # Keep every SHA-pinned action in .github/workflows moving.
+  # Keep every SHA-pinned action and the reusable-workflow pin moving.
   - package-ecosystem: github-actions
     directory: /
     schedule:

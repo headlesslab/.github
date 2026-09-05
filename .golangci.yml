@@ -1,17 +1,23 @@
 # Default golangci-lint configuration for headlesslab Go modules.
 #
 # This is upstream go-rod/rod's .golangci.yml (snapshot 393ac0d, v1 schema)
-# migrated to the v2 schema with `golangci-lint migrate` at v2.13.2, plus two
-# hand edits for linters renamed since: `wsl` was disabled upstream, so its
-# successor `wsl_v5` is disabled too (both names, since `default: all` would
-# otherwise enable the deprecated one); the deprecated `gomodguard` is disabled
-# in favour of `gomodguard_v2`, which `default: all` enables. The path
-# exclusions are upstream's and refer to wand's tree; they are harmless
-# elsewhere.
+# migrated to the v2 schema with `golangci-lint migrate` at v2.13.2, plus
+# three hand edits:
+#   - run.relative-path-mode: wd, so the path rules below are relative to the
+#     linted module as they were under v1 (the v2 default is the directory of
+#     this file);
+#   - wsl_v5 disabled next to wsl: upstream disabled wsl, and `default: all`
+#     would otherwise enable the deprecated name and its successor;
+#   - the deprecated gomodguard disabled: upstream enabled it through
+#     enable-all, and `default: all` keeps its successor gomodguard_v2 on.
+# The path exclusions are upstream's and refer to wand's tree; they are
+# harmless elsewhere.
 #
 # A module that needs its own rules puts a .golangci.yml in its module
 # directory; the reusable workflow then uses that file instead of this one.
 version: "2"
+run:
+  relative-path-mode: wd
 linters:
   default: all
   disable:

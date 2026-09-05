@@ -9,7 +9,7 @@ Organisation-wide defaults for [headlesslab](https://github.com/headlesslab) rep
 | [`SECURITY.md`](SECURITY.md) | The security policy GitHub shows on every headlesslab repository that has no `SECURITY.md` of its own. |
 | [`.github/workflows/go.yml`](.github/workflows/go.yml) | The reusable CI workflow for a Go module. The Satellite modules of [wand](https://github.com/headlesslab/wand) call it. |
 | [`.golangci.yml`](.golangci.yml) | The default golangci-lint configuration the workflow applies: upstream go-rod's, migrated to the v2 schema. |
-| [`smoke/`](smoke) | A tiny Go module that runs through the workflow on every push, so a broken `go.yml` is caught here first. |
+| [`smoke/`](smoke) | A tiny Go module that runs through the workflow on every push and pull request, so a broken `go.yml` is caught here first. |
 
 ## Reusable Go workflow
 
@@ -17,18 +17,18 @@ Organisation-wide defaults for [headlesslab](https://github.com/headlesslab) rep
 
 | Job | Runner | Go | What |
 | --- | --- | --- | --- |
-| `test` | `ubuntu-latest`, plus `windows-latest` and `macos-latest` with `cross-platform: true` | `1.21.x` and `stable` | `go build ./...`, `go vet ./...`, `go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...`. The `ubuntu-latest` / `stable` cell also runs the coverage ratchet: total statement coverage below `coverage-threshold` fails the job. |
+| `test` | `ubuntu-latest`; with `cross-platform: true` also `windows-latest` and `macos-latest` | `floor` and `stable` on `ubuntu-latest`, `stable` on the other runners | `go build ./...`, `go vet ./...`, `go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...`. The `ubuntu-latest` / `stable` cell also runs the coverage ratchet: total statement coverage below `coverage-threshold` fails the job. |
 | `lint` | `ubuntu-latest` | `stable` | golangci-lint at a version pinned in `go.yml`, with the module's own `.golangci.yml` when it has one and the default configuration in this repository otherwise. |
 | `govulncheck` | `ubuntu-latest` | `stable` | `govulncheck ./...` with `golang.org/x/vuln` at a version pinned in `go.yml`. Stable only: Go 1.21's standard library would report its own unpatched vulnerabilities forever. |
 
-Every job runs with `GOTOOLCHAIN=local`, so a dependency that raises its Go floor above the module's fails the run instead of downloading a toolchain. The workflow declares `permissions: contents: read`, checks out without persisted credentials, and pins every action to a full-length commit SHA with the version in a trailing comment.
+`floor` is the module's Go floor: the version its `go.mod` declares, at its latest patch release (`go 1.21` runs on the latest Go 1.21.x). `stable` is the current Go release. Every job runs with `GOTOOLCHAIN=local`, so a dependency that raises its Go floor above the module's fails the run instead of downloading a toolchain. The workflow declares `permissions: contents: read`, checks out without persisted credentials, and pins every action to a full-length commit SHA with the version in a trailing comment.
 
 ### Inputs
 
 | Input | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `coverage-threshold` | number | required | Minimum total statement coverage in percent, measured on the `ubuntu-latest` / `stable` job. Set it to the module's current coverage (for a snapshot-imported Satellite, the level it was imported at) and only ever raise it. |
-| `cross-platform` | boolean | `false` | Also run the `test` job on `windows-latest` and `macos-latest`. |
+| `cross-platform` | boolean | `false` | Also run the `test` job on `windows-latest` and `macos-latest`, on Go `stable`. |
 | `working-directory` | string | `.` | Directory of the Go module, relative to the repository root. |
 
 ### Calling it
@@ -58,7 +58,7 @@ jobs:
       # cross-platform: true   # only where OS behaviour matters (file locks, renames)
 ```
 
-The resulting check names are `go / test (ubuntu-latest, 1.21.x)`, `go / test (ubuntu-latest, stable)`, `go / lint` and `go / govulncheck`; those are what a `main` ruleset requires.
+The resulting check names are `go / test (ubuntu-latest, floor)`, `go / test (ubuntu-latest, stable)`, `go / lint` and `go / govulncheck`, plus `go / test (windows-latest, stable)` and `go / test (macos-latest, stable)` with `cross-platform: true`. Those are the Gates a Satellite's `main` ruleset requires.
 
 ### golangci-lint configuration
 
@@ -88,4 +88,4 @@ updates:
 
 Dependabot security updates themselves are a repository setting, switched on by the repository settings script (wand ticket #57) rather than by this file. Version bumps of Go dependencies arrive as hand pull requests.
 
-This repository's own [`.github/dependabot.yml`](.github/dependabot.yml) is the same file with the `gomod` directory pointing at `smoke/`.
+This repository's own [`.github/dependabot.yml`](.github/dependabot.yml) is the same file with the `gomod` directory set to `/smoke`.

@@ -23,7 +23,7 @@ on:
         type: number
         required: true
       cross-platform:
-        description: Also build and test on windows-latest and macos-latest.
+        description: Also build and test on windows-latest and macos-latest (Go stable only).
         type: boolean
         default: false
       working-directory:
@@ -40,6 +40,8 @@ env:
   GOTOOLCHAIN: local
 
 jobs:
+  # Go floor (the version the module's go.mod declares, at its latest patch
+  # release) and Go stable on ubuntu-latest; stable only on the other runners.
   test:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
@@ -50,8 +52,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.cross-platform && '["ubuntu-latest", "windows-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
-        go: ['1.21.x', 'stable']
+        os: [ubuntu-latest]
+        go: [floor, stable]
+        include: >-
+          ${{ fromJSON(inputs.cross-platform
+          && '[{"os": "windows-latest", "go": "stable"}, {"os": "macos-latest", "go": "stable"}]'
+          || '[]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -59,9 +65,14 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: ${{ matrix.go }}
+          go-version: ${{ matrix.go == 'stable' && 'stable' || '' }}
+          go-version-file: ${{ matrix.go == 'floor' && format('{0}/go.mod', inputs.working-directory) || '' }}
           check-latest: true
-          cache-dependency-path: ${{ inputs.working-directory }}/go.sum
+          # go.mod first: a module without dependencies has no go.sum, and
+          # setup-go fails when no listed file exists.
+          cache-dependency-path: |
+            ${{ inputs.working-directory }}/go.mod
+            ${{ inputs.working-directory }}/go.sum
 
       - run: go version
 
@@ -96,13 +107,47 @@ jobs:
         with:
           persist-credentials: false
 
-      # The default golangci-lint configuration lives next to this workflow, so
-      # check out this repository at the same commit the caller pinned.
+      # A golangci-lint configuration in the module directory wins; otherwise
+      # the default configuration next to this workflow is used.
+      - name: Pick the golangci-lint configuration
+        id: config
+        run: |
+          for f in .golangci.yml .golangci.yaml .golangci.toml .golangci.json; do
+            if [ -f "$f" ]; then
+              echo "Using the module's own $f"
+              echo "default=false" >> "$GITHUB_OUTPUT"
+              echo "args=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "Using the headlesslab default .golangci.yml"
+          echo "default=true" >> "$GITHUB_OUTPUT"
+          echo "args=--config=${GITHUB_WORKSPACE}/.headlesslab/.golangci.yml" >> "$GITHUB_OUTPUT"
+
+      # job.workflow_repository and job.workflow_sha name this workflow's own
+      # repository and commit, i.e. the pin the caller chose. Fail loudly if
+      # they are empty rather than lint against some fallback checkout.
+      - name: Locate this workflow's own commit
+        if: steps.config.outputs.default == 'true'
+        id: self
+        env:
+          REPOSITORY: ${{ job.workflow_repository }}
+          SHA: ${{ job.workflow_sha }}
+        run: |
+          if [ -z "$REPOSITORY" ] || [ -z "$SHA" ]; then
+            echo "::error::job.workflow_repository or job.workflow_sha is empty; cannot fetch the default golangci-lint configuration"
+            exit 1
+          fi
+          echo "Default configuration from ${REPOSITORY}@${SHA}"
+          echo "repository=$REPOSITORY" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
       - name: Check out the default golangci-lint configuration
+        if: steps.config.outputs.default == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ job.workflow_repository }}
-          ref: ${{ job.workflow_sha }}
+          repository: ${{ steps.self.outputs.repository }}
+          ref: ${{ steps.self.outputs.sha }}
           path: .headlesslab
           sparse-checkout: .golangci.yml
           sparse-checkout-cone-mode: false
@@ -112,20 +157,9 @@ jobs:
         with:
           go-version: stable
           check-latest: true
-          cache-dependency-path: ${{ inputs.working-directory }}/go.sum
-
-      - name: Pick the golangci-lint configuration
-        id: config
-        run: |
-          for f in .golangci.yml .golangci.yaml .golangci.toml .golangci.json; do
-            if [ -f "$f" ]; then
-              echo "Using the module's own $f"
-              echo "args=" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          done
-          echo "Using the headlesslab default .golangci.yml"
-          echo "args=--config=${GITHUB_WORKSPACE}/.headlesslab/.golangci.yml" >> "$GITHUB_OUTPUT"
+          cache-dependency-path: |
+            ${{ inputs.working-directory }}/go.mod
+            ${{ inputs.working-directory }}/go.sum
 
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
@@ -151,7 +185,9 @@ jobs:
         with:
           go-version: stable
           check-latest: true
-          cache-dependency-path: ${{ inputs.working-directory }}/go.sum
+          cache-dependency-path: |
+            ${{ inputs.working-directory }}/go.mod
+            ${{ inputs.working-directory }}/go.sum
 
       - run: go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
 
