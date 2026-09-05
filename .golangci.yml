@@ -1,0 +1,118 @@
+# Default golangci-lint configuration for headlesslab Go modules.
+#
+# This is upstream go-rod/rod's .golangci.yml (snapshot 393ac0d, v1 schema)
+# migrated to the v2 schema with `golangci-lint migrate` at v2.13.2, plus two
+# hand edits for linters renamed since: `wsl` was disabled upstream, so its
+# successor `wsl_v5` is disabled too (both names, since `default: all` would
+# otherwise enable the deprecated one); the deprecated `gomodguard` is disabled
+# in favour of `gomodguard_v2`, which `default: all` enables. The path
+# exclusions are upstream's and refer to wand's tree; they are harmless
+# elsewhere.
+#
+# A module that needs its own rules puts a .golangci.yml in its module
+# directory; the reusable workflow then uses that file instead of this one.
+version: "2"
+linters:
+  default: all
+  disable:
+    - canonicalheader
+    - containedctx
+    - contextcheck
+    - copyloopvar
+    - depguard
+    - err113
+    - exhaustive
+    - exhaustruct
+    - gochecknoglobals
+    - gochecknoinits
+    - godox
+    - gomodguard
+    - gosec
+    - intrange
+    - ireturn
+    - mnd
+    - musttag
+    - nakedret
+    - nlreturn
+    - nonamedreturns
+    - paralleltest
+    - perfsprint
+    - prealloc
+    - tagliatelle
+    - testpackage
+    - varnamelen
+    - wrapcheck
+    - wsl
+    - wsl_v5
+  settings:
+    cyclop:
+      max-complexity: 15
+    funlen:
+      lines: 120
+    gocyclo:
+      min-complexity: 15
+    nestif:
+      min-complexity: 6
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - contextcheck
+          - dupword
+          - errorlint
+          - forcetypeassert
+          - funlen
+          - goconst
+          - lll
+          - testableexamples
+        path: _test.go$
+      - linters:
+          - dupword
+          - forcetypeassert
+          - gocritic
+          - lll
+        path: lib/proto/
+      - linters:
+          - lll
+        path: lib/devices/list.go
+      - linters:
+          - lll
+        path: lib/js/helper.go
+      - linters:
+          - forbidigo
+        path: /fixtures/
+      - linters:
+          - forbidigo
+          - gocritic
+          - noctx
+        path: lib/examples/
+      - linters:
+          - forbidigo
+          - gocritic
+          - noctx
+        path: examples?_test.go$
+      - linters:
+          - forbidigo
+          - forcetypeassert
+          - lll
+          - noctx
+        path: main.go$
+      - linters:
+          - lll
+        path: lib/assets/
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

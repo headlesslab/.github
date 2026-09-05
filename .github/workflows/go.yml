@@ -1,0 +1,158 @@
+# Reusable CI for a headlesslab Go module (the Satellite modules call this).
+#
+# Callers pin this file to a full commit SHA and let Dependabot move it:
+#
+#   jobs:
+#     go:
+#       uses: headlesslab/.github/.github/workflows/go.yml@<sha> # main
+#       with:
+#         coverage-threshold: 90
+#
+# Every action below is pinned to a full-length commit SHA with its version in
+# a trailing comment; Dependabot (github-actions, weekly) keeps them moving.
+name: Go
+
+on:
+  workflow_call:
+    inputs:
+      coverage-threshold:
+        description: >-
+          Minimum total statement coverage in percent, measured on the
+          ubuntu-latest / Go stable job. The job fails when coverage is below
+          it. Set it to the module's current coverage and only ever raise it.
+        type: number
+        required: true
+      cross-platform:
+        description: Also build and test on windows-latest and macos-latest.
+        type: boolean
+        default: false
+      working-directory:
+        description: Directory of the Go module, relative to the repository root.
+        type: string
+        default: .
+
+permissions:
+  contents: read
+
+env:
+  # Never download a newer toolchain: a dependency raising its Go floor above
+  # ours must fail the run, not silently pull a toolchain.
+  GOTOOLCHAIN: local
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.cross-platform && '["ubuntu-latest", "windows-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
+        go: ['1.21.x', 'stable']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ matrix.go }}
+          check-latest: true
+          cache-dependency-path: ${{ inputs.working-directory }}/go.sum
+
+      - run: go version
+
+      - run: go build ./...
+
+      - run: go vet ./...
+
+      - run: go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Coverage ratchet
+        if: matrix.os == 'ubuntu-latest' && matrix.go == 'stable'
+        env:
+          THRESHOLD: ${{ inputs.coverage-threshold }}
+        run: |
+          total=$(go tool cover -func=coverage.out | awk '/^total:/ { sub("%", "", $3); print $3 }')
+          total=${total:-0}
+          echo "Total statement coverage: ${total}% (threshold: ${THRESHOLD}%)" | tee -a "$GITHUB_STEP_SUMMARY"
+          if awk -v c="$total" -v t="$THRESHOLD" 'BEGIN { exit !(c + 0 < t + 0) }'; then
+            echo "::error::Coverage ${total}% is below the threshold of ${THRESHOLD}%"
+            exit 1
+          fi
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The default golangci-lint configuration lives next to this workflow, so
+      # check out this repository at the same commit the caller pinned.
+      - name: Check out the default golangci-lint configuration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .headlesslab
+          sparse-checkout: .golangci.yml
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache-dependency-path: ${{ inputs.working-directory }}/go.sum
+
+      - name: Pick the golangci-lint configuration
+        id: config
+        run: |
+          for f in .golangci.yml .golangci.yaml .golangci.toml .golangci.json; do
+            if [ -f "$f" ]; then
+              echo "Using the module's own $f"
+              echo "args=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "Using the headlesslab default .golangci.yml"
+          echo "args=--config=${GITHUB_WORKSPACE}/.headlesslab/.golangci.yml" >> "$GITHUB_OUTPUT"
+
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.13.2
+          working-directory: ${{ inputs.working-directory }}
+          args: ${{ steps.config.outputs.args }}
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Stable only: x/vuln needs a recent Go, and Go 1.21's standard library
+      # would report its own unpatched vulnerabilities forever.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache-dependency-path: ${{ inputs.working-directory }}/go.sum
+
+      - run: go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+
+      - run: govulncheck ./...
