@@ -2,14 +2,20 @@
 #
 # This is upstream go-rod/rod's .golangci.yml (snapshot 393ac0d, v1 schema)
 # migrated to the v2 schema with `golangci-lint migrate` at v2.13.2, plus
-# three hand edits:
+# five hand edits:
 #   - run.relative-path-mode: wd, so the path rules below are relative to the
 #     linted module as they were under v1 (the v2 default is the directory of
 #     this file);
 #   - wsl_v5 disabled next to wsl: upstream disabled wsl, and `default: all`
 #     would otherwise enable the deprecated name and its successor;
 #   - the deprecated gomodguard disabled: upstream enabled it through
-#     enable-all, and `default: all` keeps its successor gomodguard_v2 on.
+#     enable-all, and `default: all` keeps its successor gomodguard_v2 on;
+#   - exhaustruct_v5 disabled next to exhaustruct: upstream disabled
+#     exhaustruct, and `default: all` would otherwise enable the deprecated
+#     name's successor;
+#   - noinlineerr disabled: it forbids Go's `if err := f(); err != nil`
+#     form, which upstream's code and the snapshot-imported Satellites use
+#     throughout, and which ADR-0001's verbatim import cannot restyle.
 # The path exclusions are upstream's and refer to wand's tree; they are
 # harmless elsewhere.
 #
@@ -29,6 +35,7 @@ linters:
     - err113
     - exhaustive
     - exhaustruct
+    - exhaustruct_v5
     - gochecknoglobals
     - gochecknoinits
     - godox
@@ -40,6 +47,7 @@ linters:
     - musttag
     - nakedret
     - nlreturn
+    - noinlineerr
     - nonamedreturns
     - paralleltest
     - perfsprint
