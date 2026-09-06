@@ -60,7 +60,7 @@ jobs:
       # godebug: tracebackancestors=1000   # only for a suite built on leakcheck
 ```
 
-The resulting check names are `go / test (ubuntu-latest, floor)`, `go / test (ubuntu-latest, stable)`, `go / lint` and `go / govulncheck`, plus `go / test (windows-latest, stable)` and `go / test (macos-latest, stable)` with `cross-platform: true`. Those are the Gates a Satellite's `main` ruleset requires.
+The resulting check names are `go / test (ubuntu-latest, floor)`, `go / test (ubuntu-latest, stable)`, `go / lint` and `go / govulncheck`, plus `go / test (windows-latest, stable)` and `go / test (macos-latest, stable)` with `cross-platform: true`. Those are the Gates a Satellite's `main` ruleset requires; the same settings script passes them as `-check` flags.
 
 ### golangci-lint configuration
 
@@ -88,6 +88,6 @@ updates:
     open-pull-requests-limit: 0
 ```
 
-Dependabot security updates themselves are a repository setting, switched on by the repository settings script (wand ticket #57) rather than by this file. Version bumps of Go dependencies arrive as hand pull requests.
+Dependabot security updates themselves are a repository setting, switched on by wand's repository settings script ([`internal/tools/repo-settings`](https://github.com/headlesslab/wand/tree/main/internal/tools/repo-settings), run as documented in wand's [maintainer notes](https://github.com/headlesslab/wand/blob/main/docs/maintainer-notes.md)) rather than by this file. Version bumps of Go dependencies arrive as hand pull requests.
 
 This repository's own [`.github/dependabot.yml`](.github/dependabot.yml) is the same file with the `gomod` directory set to `/smoke`.
