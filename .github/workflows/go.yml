@@ -30,6 +30,13 @@ on:
         description: Directory of the Go module, relative to the repository root.
         type: string
         default: .
+      godebug:
+        description: >-
+          GODEBUG for the test binaries, e.g. tracebackancestors=1000 for a
+          suite built on leakcheck. Empty leaves it unset. A called workflow
+          does not inherit the caller's env, hence an input.
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -81,6 +88,8 @@ jobs:
       - run: go vet ./...
 
       - run: go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+        env:
+          GODEBUG: ${{ inputs.godebug }}
 
       - name: Coverage ratchet
         if: matrix.os == 'ubuntu-latest' && matrix.go == 'stable'

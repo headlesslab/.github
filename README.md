@@ -30,6 +30,7 @@ Organisation-wide defaults for [headlesslab](https://github.com/headlesslab) rep
 | `coverage-threshold` | number | required | Minimum total statement coverage in percent, measured on the `ubuntu-latest` / `stable` job. Set it to the module's current coverage (for a snapshot-imported Satellite, the level it was imported at) and only ever raise it. |
 | `cross-platform` | boolean | `false` | Also run the `test` job on `windows-latest` and `macos-latest`, on Go `stable`. |
 | `working-directory` | string | `.` | Directory of the Go module, relative to the repository root. |
+| `godebug` | string | empty | `GODEBUG` for the test binaries on every `test` cell, e.g. `tracebackancestors=1000` for a suite built on [leakcheck](https://github.com/headlesslab/leakcheck). A called workflow does not inherit the caller's `env`, so the variable travels as an input. |
 
 ### Calling it
 
@@ -56,6 +57,7 @@ jobs:
     with:
       coverage-threshold: 90
       # cross-platform: true   # only where OS behaviour matters (file locks, renames)
+      # godebug: tracebackancestors=1000   # only for a suite built on leakcheck
 ```
 
 The resulting check names are `go / test (ubuntu-latest, floor)`, `go / test (ubuntu-latest, stable)`, `go / lint` and `go / govulncheck`, plus `go / test (windows-latest, stable)` and `go / test (macos-latest, stable)` with `cross-platform: true`. Those are the Gates a Satellite's `main` ruleset requires.
